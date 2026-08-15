@@ -307,11 +307,9 @@ async function connectUSB() {
 
     try {
 
-        usbDevice =
-            await navigator.usb
-            .requestDevice({
-                filters: []
-            });
+usbDevice = await navigator.usb.requestDevice({
+    filters: [{}]
+});
 
         await usbDevice.open();
 
