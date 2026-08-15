@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebUSB Toolbox</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #080b12;
+        color: white;
+    }
+
+    header {
+        padding: 18px;
+        background: #101624;
+        border-bottom: 1px solid #27334a;
+    }
+
+    h1 {
+        margin: 0;
+        font-size: 24px;
+    }
+
+    header p {
+        margin: 5px 0 0;
+        color: #9caac2;
+    }
+
+    .container {
+        padding: 16px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 14px;
+    }
+
+    .panel {
+        background: #111827;
+        border: 1px solid #263248;
+        border-radius: 14px;
+        padding: 15px;
+    }
+
+    .panel h2 {
+        margin-top: 0;
+        font-size: 18px;
+    }
+
+    button {
+        background: #1d4ed8;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin: 4px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #2563eb;
+    }
+
+    button.danger {
+        background: #b91c1c;
+    }
+
+    button.danger:hover {
+        background: #dc2626;
+    }
+
+    input,
+    select,
+    textarea {
+        width: 100%;
+        background: #090e18;
+        color: white;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 9px;
+        margin: 5px 0;
+    }
+
+    textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    pre {
+        background: #05080e;
+        border: 1px solid #263248;
+        border-radius: 10px;
+        padding: 12px;
+        overflow: auto;
+        min-height: 150px;
+        white-space: pre-wrap;
+    }
+
+    .green {
+        color: #4ade80;
+    }
+
+    .red {
+        color: #fb7185;
+    }
+
+    .yellow {
+        color: #facc15;
+    }
+
+    .small {
+        color: #94a3b8;
+        font-size: 13px;
+    }
+
+    .full {
+        grid-column: 1 / -1;
+    }
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>🔌 WebUSB Toolbox</h1>
+    <p>Herramientas USB directas desde el navegador</p>
+</header>
+
+<div class="container">
+
+    <div class="panel">
+        <h2>Conexión</h2>
+
+        <button onclick="connectUSB()">Conectar USB</button>
+        <button onclick="disconnectUSB()">Desconectar</button>
+
+        <p id="status" class="red">
+            ● Sin dispositivo
+        </p>
+
+        <button onclick="showRememberedDevices()">
+            Dispositivos autorizados
+        </button>
+    </div>
+
+    <div class="panel">
+        <h2>Información</h2>
+
+        <pre id="deviceInfo">No hay dispositivo conectado.</pre>
+    </div>
+
+    <div class="panel">
+        <h2>Configuración USB</h2>
+
+        <label>Configuración</label>
+        <input id="configurationValue" type="number" value="1">
+
+        <button onclick="selectConfiguration()">
+            Seleccionar configuración
+        </button>
+
+        <hr>
+
+        <label>Interface</label>
+        <input id="interfaceNumber" type="number" value="0">
+
+        <button onclick="claimInterface()">
+            Claim interface
+        </button>
+
+        <button onclick="releaseInterface()">
+            Release interface
+        </button>
+
+        <hr>
+
+        <label>Alternate interface</label>
+        <input id="alternateSetting" type="number" value="0">
+
+        <button onclick="selectAlternateInterface()">
+            Seleccionar alternate
+        </button>
+    </div>
+
+    <div class="panel">
+        <h2>Transfer OUT</h2>
+
+        <label>Endpoint OUT</label>
+        <input id="outEndpoint" type="number" value="1">
+
+        <label>Datos</label>
+        <textarea
+            id="outData"
+            placeholder="Ejemplo:
+01 02 FF AA
+o texto normal"
+        ></textarea>
+
+        <select id="outMode">
+            <option value="hex">HEX</option>
+            <option value="text">Texto UTF-8</option>
+        </select>
+
+        <button onclick="transferOut()">
+            Enviar
+        </button>
+    </div>
+
+    <div class="panel">
+        <h2>Transfer IN</h2>
+
+        <label>Endpoint IN</label>
+        <input id="inEndpoint" type="number" value="1">
+
+        <label>Cantidad de bytes</label>
+        <input id="inLength" type="number" value="64">
+
+        <button onclick="transferIn()">
+            Leer
+        </button>
+
+        <pre id="inResult"></pre>
+    </div>
+
+    <div class="panel">
+        <h2>Control Transfer OUT</h2>
+
+        <label>Request Type</label>
+        <select id="controlOutRequestType">
+            <option value="standard">standard</option>
+            <option value="class">class</option>
+            <option value="vendor">vendor</option>
+        </select>
+
+        <label>Recipient</label>
+        <select id="controlOutRecipient">
+            <option value="device">device</option>
+            <option value="interface">interface</option>
+            <option value="endpoint">endpoint</option>
+            <option value="other">other</option>
+        </select>
+
+        <label>Request</label>
+        <input id="controlOutRequest" type="number" value="0">
+
+        <label>Value</label>
+        <input id="controlOutValue" type="number" value="0">
+
+        <label>Index</label>
+        <input id="controlOutIndex" type="number" value="0">
+
+        <label>Datos HEX</label>
+        <textarea id="controlOutData">00</textarea>
+
+        <button onclick="controlTransferOut()">
+            Enviar Control OUT
+        </button>
+    </div>
+
+    <div class="panel">
+        <h2>Control Transfer IN</h2>
+
+        <label>Request Type</label>
+        <select id="controlInRequestType">
+            <option value="standard">standard</option>
+            <option value="class">class</option>
+            <option value="vendor">vendor</option>
+        </select>
+
+        <label>Recipient</label>
+        <select id="controlInRecipient">
+            <option value="device">device</option>
+            <option value="interface">interface</option>
+            <option value="endpoint">endpoint</option>
+            <option value="other">other</option>
+        </select>
+
+        <label>Request</label>
+        <input id="controlInRequest" type="number" value="0">
+
+        <label>Value</label>
+        <input id="controlInValue" type="number" value="0">
+
+        <label>Index</label>
+        <input id="controlInIndex" type="number" value="0">
+
+        <label>Longitud</label>
+        <input id="controlInLength" type="number" value="64">
+
+        <button onclick="controlTransferIn()">
+            Leer Control IN
+        </button>
+
+        <pre id="controlInResult"></pre>
+    </div>
+
+    <div class="panel">
+        <h2>Reset</h2>
+
+        <button onclick="resetDevice()" class="danger">
+            Reset USB
+        </button>
+
+        <p class="small">
+            Algunos dispositivos pueden desconectarse temporalmente al hacer reset.
+        </p>
+    </div>
+
+    <div class="panel full">
+        <h2>Interfaces y endpoints</h2>
+
+        <button onclick="scanInterfaces()">
+            Analizar dispositivo
+        </button>
+
+        <pre id="interfaceInfo"></pre>
+    </div>
+
+    <div class="panel full">
+        <h2>Consola</h2>
+
+        <button onclick="clearLog()">
+            Limpiar
+        </button>
+
+        <button onclick="copyLog()">
+            Copiar
+        </button>
+
+        <pre id="log"></pre>
+    </div>
+
+</div>
+
+<script>
+
+let device = null;
+
+const logElement = document.getElementById("log");
+
+function log(message) {
+
+    const time = new Date().toLocaleTimeString();
+
+    logElement.textContent +=
+        `[${time}] ${message}\n`;
+
+    logElement.scrollTop =
+        logElement.scrollHeight;
+}
+
+async function connectUSB() {
+
+    if (!navigator.usb) {
+
+        alert(
+            "Este navegador no soporta WebUSB."
+        );
+
+        return;
+    }
+
+    try {
+
+        device =
+            await navigator.usb.requestDevice({
+                filters: []
+            });
+
+        log(
+            "Dispositivo seleccionado: " +
+            (device.productName || "desconocido")
+        );
+
+        await device.open();
+
+        log("USB abierto");
+
+        if (
+            device.configuration === null &&
+            device.configurations.length > 0
+        ) {
+
+            await device.selectConfiguration(
+                device.configurations[0]
+                    .configurationValue
+            );
+
+            log(
+                "Configuración seleccionada automáticamente"
+            );
+        }
+
+        updateDeviceInfo();
+
+        document.getElementById("status").innerHTML =
+            '<span class="green">● Conectado</span>';
+
+    } catch (error) {
+
+        log(
+            "ERROR conexión: " +
+            error.message
+        );
+    }
+}
+
+async function disconnectUSB() {
+
+    if (!device)
+        return;
+
+    try {
+
+        if (device.opened)
+            await device.close();
+
+        log("USB cerrado");
+
+    } catch (error) {
+
+        log(
+            "ERROR cerrando: " +
+            error.message
+        );
+    }
+
+    device = null;
+
+    document.getElementById("status").innerHTML =
+        '<span class="red">● Sin dispositivo</span>';
+
+    document.getElementById("deviceInfo")
+        .textContent =
+        "No hay dispositivo conectado.";
+}
+
+function updateDeviceInfo() {
+
+    if (!device)
+        return;
+
+    let info = "";
+
+    info +=
+        "Producto: " +
+        (device.productName || "N/A") +
+        "\n";
+
+    info +=
+        "Fabricante: " +
+        (device.manufacturerName || "N/A") +
+        "\n";
+
+    info +=
+        "Serial: " +
+        (device.serialNumber || "N/A") +
+        "\n\n";
+
+    info +=
+        "Vendor ID: 0x" +
+        device.vendorId
+            .toString(16)
+            .padStart(4, "0") +
+        "\n";
+
+    info +=
+        "Product ID: 0x" +
+        device.productId
+            .toString(16)
+            .padStart(4, "0") +
+        "\n";
+
+    info +=
+        "USB version: " +
+        device.usbVersionMajor +
+        "." +
+        device.usbVersionMinor +
+        "." +
+        device.usbVersionSubminor +
+        "\n";
+
+    info +=
+        "Device version: " +
+        device.deviceVersionMajor +
+        "." +
+        device.deviceVersionMinor +
+        "." +
+        device.deviceVersionSubminor +
+        "\n";
+
+    info +=
+        "Device class: " +
+        device.deviceClass +
+        "\n";
+
+    info +=
+        "Subclass: " +
+        device.deviceSubclass +
+        "\n";
+
+    info +=
+        "Protocol: " +
+        device.deviceProtocol +
+        "\n";
+
+    info +=
+        "Opened: " +
+        device.opened +
+        "\n";
+
+    info +=
+        "Configuraciones: " +
+        device.configurations.length +
+        "\n";
+
+    if (device.configuration) {
+
+        info +=
+            "Configuración activa: " +
+            device.configuration
+                .configurationValue +
+            "\n";
+    }
+
+    document.getElementById("deviceInfo")
+        .textContent = info;
+}
+
+async function showRememberedDevices() {
+
+    try {
+
+        const devices =
+            await navigator.usb.getDevices();
+
+        log(
+            "Dispositivos autorizados: " +
+            devices.length
+        );
+
+        devices.forEach((d, i) => {
+
+            log(
+                `${i + 1}: ${
+                    d.productName || "USB"
+                } VID=${hex16(d.vendorId)} PID=${hex16(d.productId)}`
+            );
+        });
+
+    } catch (error) {
+
+        log(error.message);
+    }
+}
+
+async function selectConfiguration() {
+
+    if (!checkDevice())
+        return;
+
+    const value =
+        Number(
+            document.getElementById(
+                "configurationValue"
+            ).value
+        );
+
+    try {
+
+        await device.selectConfiguration(value);
+
+        log(
+            "Configuración activa: " +
+            value
+        );
+
+        updateDeviceInfo();
+
+    } catch (error) {
+
+        log(
+            "ERROR configuración: " +
+            error.message
+        );
+    }
+}
+
+async function claimInterface() {
+
+    if (!checkDevice())
+        return;
+
+    const number =
+        Number(
+            document.getElementById(
+                "interfaceNumber"
+            ).value
+        );
+
+    try {
+
+        await device.claimInterface(number);
+
+        log(
+            "Interface reclamada: " +
+            number
+        );
+
+    } catch (error) {
+
+        log(
+            "ERROR claimInterface: " +
+            error.message
+        );
+    }
+}
+
+async function releaseInterface() {
+
+    if (!checkDevice())
+        return;
+
+    const number =
+        Number(
+            document.getElementById(
+                "interfaceNumber"
+            ).value
+        );
+
+    try {
+
+        await device.releaseInterface(number);
+
+        log(
+            "Interface liberada: " +
+            number
+        );
+
+    } catch (error) {
+
+        log(
+            "ERROR releaseInterface: " +
+            error.message
+        );
+    }
+}
+
+async function selectAlternateInterface() {
+
+    if (!checkDevice())
+        return;
+
+    const interfaceNumber =
+        Number(
+            document.getElementById(
+                "interfaceNumber"
+            ).value
+        );
+
+    const alternateSetting =
+        Number(
+            document.getElementById(
+                "alternateSetting"
+            ).value
+        );
+
+    try {
+
+        await device.selectAlternateInterface(
+            interfaceNumber,
+            alternateSetting
+        );
+
+        log(
+            `Alternate interface ${interfaceNumber} => ${alternateSetting}`
+        );
+
+    } catch (error) {
+
+        log(
+            "ERROR alternate: " +
+            error.message
+        );
+    }
+}
+
+async function transferOut() {
+
+    if (!checkDevice())
+        return;
+
+    const endpoint =
+        Number(
+            document.getElementById(
+                "outEndpoint"
+            ).value
+        );
+
+    const mode =
+        document.getElementById(
+            "outMode"
+        ).value;
+
+    const input =
+        document.getElementById(
+            "outData"
+        ).value;
+
+    let data;
+
+    if (mode === "hex") {
+
+        data = hexToBytes(input);
+
+    } else {
+
+        data =
+            new TextEncoder()
+                .encode(input);
+    }
+
+    try {
+
+        const result =
+            await device.transferOut(
+                endpoint,
+                data
+            );
+
+        log(
+            `OUT endpoint ${endpoint}: ${result.bytesWritten} bytes`
+        );
+
+    } catch (error) {
+
+        log(
+            "ERROR transferOut: " +
+            error.message
+        );
+    }
+}
+
+async function transferIn() {
+
+    if (!checkDevice())
+        return;
+
+    const endpoint =
+        Number(
+            document.getElementById(
+                "inEndpoint"
+            ).value
+        );
+
+    const length =
+        Number(
+            document.getElementById(
+                "inLength"
+            ).value
+        );
+
+    try {
+
+        const result =
+            await device.transferIn(
+                endpoint,
+                length
+            );
+
+        const bytes =
+            new Uint8Array(
+                result.data.buffer
+            );
+
+        const text =
+            bytesToHex(bytes);
+
+        document.getElementById(
+            "inResult"
+        ).textContent =
+            "Status: " +
+            result.status +
+            "\n\nHEX:\n" +
+            text +
+            "\n\nTexto:\n" +
+            tryDecodeText(bytes);
+
+        log(
+            `IN endpoint ${endpoint}: ${bytes.length} bytes`
+        );
+
+    } catch (error) {
+
+        log(
+            "ERROR transferIn: " +
+            error.message
+        );
+    }
+}
+
+async function controlTransferOut() {
+
+    if (!checkDevice())
+        return;
+
+    const setup = {
+
+        requestType:
+            document.getElementById(
+                "controlOutRequestType"
+            ).value,
+
+        recipient:
+            document.getElementById(
+                "controlOutRecipient"
+            ).value,
+
+        request:
+            Number(
+                document.getElementById(
+                    "controlOutRequest"
+                ).value
+            ),
+
+        value:
+            Number(
+                document.getElementById(
+                    "controlOutValue"
+                ).value
+            ),
+
+        index:
+            Number(
+                document.getElementById(
+                    "controlOutIndex"
+                ).value
+            )
+    };
+
+    const data =
+        hexToBytes(
+            document.getElementById(
+                "controlOutData"
+            ).value
+        );
+
+    try {
+
+        const result =
+            await device.controlTransferOut(
+                setup,
+                data
+            );
+
+        log(
+            "Control OUT status=" +
+            result.status +
+            " bytesWritten=" +
+            result.bytesWritten
+        );
+
+    } catch (error) {
+
+        log(
+            "ERROR control OUT: " +
+            error.message
+        );
+    }
+}
+
+async function controlTransferIn() {
+
+    if (!checkDevice())
+        return;
+
+    const setup = {
+
+        requestType:
+            document.getElementById(
+                "controlInRequestType"
+            ).value,
+
+        recipient:
+            document.getElementById(
+                "controlInRecipient"
+            ).value,
+
+        request:
+            Number(
+                document.getElementById(
+                    "controlInRequest"
+                ).value
+            ),
+
+        value:
+            Number(
+                document.getElementById(
+                    "controlInValue"
+                ).value
+            ),
+
+        index:
+            Number(
+                document.getElementById(
+                    "controlInIndex"
+                ).value
+            )
+    };
+
+    const length =
+        Number(
+            document.getElementById(
+                "controlInLength"
+            ).value
+        );
+
+    try {
+
+        const result =
+            await device.controlTransferIn(
+                setup,
+                length
+            );
+
+        const bytes =
+            new Uint8Array(
+                result.data.buffer
+            );
+
+        document.getElementById(
+            "controlInResult"
+        ).textContent =
+            "Status: " +
+            result.status +
+            "\n\nHEX:\n" +
+            bytesToHex(bytes) +
+            "\n\nTexto:\n" +
+            tryDecodeText(bytes);
+
+        log(
+            "Control IN: " +
+            bytes.length +
+            " bytes"
+        );
+
+    } catch (error) {
+
+        log(
+            "ERROR control IN: " +
+            error.message
+        );
+    }
+}
+
+async function resetDevice() {
+
+    if (!checkDevice())
+        return;
+
+    if (
+        !confirm(
+            "¿Seguro que quieres hacer RESET al dispositivo USB?"
+        )
+    ) {
+        return;
+    }
+
+    try {
+
+        await device.reset();
+
+        log("RESET enviado al dispositivo");
+
+    } catch (error) {
+
+        log(
+            "ERROR reset: " +
+            error.message
+        );
+    }
+}
+
+function scanInterfaces() {
+
+    if (!checkDevice())
+        return;
+
+    if (!device.configuration) {
+
+        log(
+            "No hay configuración activa"
+        );
+
+        return;
+    }
+
+    let text = "";
+
+    const config =
+        device.configuration;
+
+    text +=
+        `CONFIGURACIÓN ${config.configurationValue}\n`;
+
+    text +=
+        `Nombre: ${config.configurationName || "N/A"}\n`;
+
+    text +=
+        `Interfaces: ${config.interfaces.length}\n\n`;
+
+    for (
+        const iface
+        of config.interfaces
+    ) {
+
+        text +=
+            "============================\n";
+
+        text +=
+            `INTERFACE ${iface.interfaceNumber}\n`;
+
+        for (
+            const alt
+            of iface.alternates
+        ) {
+
+            text +=
+                `\nAlternate: ${alt.alternateSetting}\n`;
+
+            text +=
+                `Class: ${alt.interfaceClass}\n`;
+
+            text +=
+                `Subclass: ${alt.interfaceSubclass}\n`;
+
+            text +=
+                `Protocol: ${alt.interfaceProtocol}\n`;
+
+            text +=
+                `Nombre: ${alt.interfaceName || "N/A"}\n`;
+
+            text +=
+                `Endpoints: ${alt.endpoints.length}\n`;
+
+            for (
+                const endpoint
+                of alt.endpoints
+            ) {
+
+                text +=
+                    "\n  Endpoint " +
+                    endpoint.endpointNumber +
+                    "\n";
+
+                text +=
+                    "  Dirección: " +
+                    endpoint.direction +
+                    "\n";
+
+                text +=
+                    "  Tipo: " +
+                    endpoint.type +
+                    "\n";
+
+                text +=
+                    "  Packet size: " +
+                    endpoint.packetSize +
+                    "\n";
+            }
+        }
+
+        text += "\n";
+    }
+
+    document.getElementById(
+        "interfaceInfo"
+    ).textContent = text;
+
+    log(
+        "Interfaces analizadas"
+    );
+}
+
+function hexToBytes(hex) {
+
+    hex =
+        hex
+            .replace(/0x/gi, "")
+            .replace(/[^0-9a-f]/gi, "");
+
+    if (hex.length % 2 !== 0) {
+
+        hex = "0" + hex;
+    }
+
+    const bytes =
+        new Uint8Array(
+            hex.length / 2
+        );
+
+    for (
+        let i = 0;
+        i < bytes.length;
+        i++
+    ) {
+
+        bytes[i] =
+            parseInt(
+                hex.substr(
+                    i * 2,
+                    2
+                ),
+                16
+            );
+    }
+
+    return bytes;
+}
+
+function bytesToHex(bytes) {
+
+    return Array
+        .from(bytes)
+        .map(
+            b =>
+                b
+                    .toString(16)
+                    .padStart(2, "0")
+                    .toUpperCase()
+        )
+        .join(" ");
+}
+
+function tryDecodeText(bytes) {
+
+    try {
+
+        return new TextDecoder()
+            .decode(bytes);
+
+    } catch {
+
+        return "";
+    }
+}
+
+function hex16(number) {
+
+    return "0x" +
+        number
+            .toString(16)
+            .padStart(4, "0")
+            .toUpperCase();
+}
+
+function checkDevice() {
+
+    if (
+        !device ||
+        !device.opened
+    ) {
+
+        log(
+            "No hay ningún dispositivo USB abierto"
+        );
+
+        return false;
+    }
+
+    return true;
+}
+
+function clearLog() {
+
+    logElement.textContent = "";
+}
+
+async function copyLog() {
+
+    try {
+
+        await navigator.clipboard.writeText(
+            logElement.textContent
+        );
+
+        log(
+            "Consola copiada"
+        );
+
+    } catch {
+
+        log(
+            "No se pudo copiar"
+        );
+    }
+}
+
+navigator.usb?.addEventListener(
+    "connect",
+    event => {
+
+        log(
+            "USB conectado físicamente: " +
+            (
+                event.device.productName ||
+                "desconocido"
+            )
+        );
+    }
+);
+
+navigator.usb?.addEventListener(
+    "disconnect",
+    event => {
+
+        log(
+            "USB desconectado físicamente: " +
+            (
+                event.device.productName ||
+                "desconocido"
+            )
+        );
+
+        if (
+            device === event.device
+        ) {
+
+            device = null;
+
+            document.getElementById(
+                "status"
+            ).innerHTML =
+                '<span class="red">● Desconectado</span>';
+        }
+    }
+);
+
+if (!navigator.usb) {
+
+    document.getElementById(
+        "status"
+    ).innerHTML =
+        '<span class="red">WebUSB no disponible</span>';
+
+    log(
+        "Este navegador no soporta navigator.usb"
+    );
+}
+
+</script>
+
+</body>
+</html>
